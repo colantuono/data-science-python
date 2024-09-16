@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import * 
 from sklearn.metrics import *
+from sklearn.metrics import *
+from sklearn.model_selection import *
 
 
 ## configurações
@@ -158,4 +160,73 @@ def pracc_metrics(y_test, y_prob, threshold_lst=np.arange(0.1, 1.1, .1)):
 
     return pd.DataFrame(metrics_dic)
     
+def plot_learning_curve(estimator, X, y, title='', cv=5,
+                        n_jobs=1, scorer=None, ylim=None, seed=123,
+                        train_sizes=np.linspace(.1, 1.0, 10)):
+    plt.figure()
+    plt.title(title)
     
+    if scorer is None:
+        scorer=make_scorer(accuracy_score)
+    if ylim is not None:
+        plt.ylim(*ylim)
+        
+    plt.xlabel('Training examples')
+    plt.ylabel('Score')
+    train_sizes, train_scores, test_scores = learning_curve(
+        estimator, X, y, cv=cv, scoring=scorer, random_state=seed,
+        n_jobs=n_jobs, train_sizes=np.linspace(.1, 1.0, 10)
+    )
+    
+    train_scores_mean = np.mean(train_scores, axis=1)
+    train_scores_std = np.std(train_scores, axis=1, ddof=1)
+    test_scores_mean = np.mean(test_scores, axis=1)
+    test_scores_std = np.std(test_scores, axis=1, ddof=1)
+    
+    train_scores_last4 = train_scores[-4:,:] 
+    test_scores_last4 = test_scores[-4:,:] 
+
+    train_avg = train_scores_last4.mean()
+    train_std = train_scores_last4.std(ddof=1)
+    train_n = len(train_scores_last4[-1])
+    test_avg = test_scores_last4.mean()
+    test_std = test_scores_last4.std(ddof=1)
+    test_n = len(test_scores_last4[-1])
+    
+    txt_lst = [
+        f'{scorer}: Score',
+        f"Train Score: {train_avg:.3f} ({train_std:.3f})"        
+        f"Test Score: {test_avg:.3f} ({test_std:.3f})"        
+               ]
+    
+    for line in txt_lst:
+        print(line)
+    print('-'*20)
+    
+    plt.ticklabel_format(axis='x', style='sci', scilimits=(3,3))
+    plt.fill_between(train_sizes, train_scores_mean - train_scores_std,
+                     train_scores_mean + train_scores_std, alpha=.2, color='r')
+    plt.fill_between(train_sizes, test_scores_mean - test_scores_std,
+                     test_scores_mean + test_scores_std, alpha=.2, color='g')
+    plt.plot(train_sizes, train_scores_mean, 'o-', linewidth=1, color='r',
+    label='Training Score')
+    plt.plot(train_sizes, test_scores_mean, 'o-', linewidth=1, color='g',
+    label='Cross-Validation Score')
+    
+    plt.legend(loc='best');
+    return plt, txt_lst, [train_avg, train_std, train_n], [test_avg, test_std, test_n]
+    
+def t_test_S(x0, x_hat, S, n, alpha=.5):
+    t_obs = (x_hat - x0)*np.sqrt(n)/S
+    
+    print(f'Probabilidade da metrica calculada para base de teste pertencer à validação de treino:')
+    p_value = 1-t.cdf(np.abs(t_obs), n-1)
+    print(f'P-Valor = {p_value:.4f} ({t_obs:.3f})')
+    
+    
+    if p_value > alpha:
+        print(f'O valor {x0:.4f} tem probabilidade de {p_value:.2%} de pertencer a validação por flutuação estatística, e com IC={1-alpha}, não rejeito H0')
+    else:
+        print(f'O valor {x0:.4f} tem probabilidade de {p_value:.2%} de pertencer a validação por flutuação estatística, e com IC={1-alpha}, rejeito H0')
+
+    return p_value
